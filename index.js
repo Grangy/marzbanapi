@@ -84,10 +84,7 @@ app.post("/users/:username/extend", async (req, res) => {
 
 
 /**
- * Создание пользователя
- */
-/**
- * Создание пользователя (как Shnitcel, но с кастомным именем)
+ * Создание пользователя (как Shnitcel, но с кастомным именем и Reality inbound)
  */
 app.post("/users", async (req, res) => {
   try {
@@ -95,7 +92,6 @@ app.post("/users", async (req, res) => {
     const userData = req.body;
 
     // Генерация имени в формате "telegramId_M12_x"
-    // например, если передаёшь telegramId и счётчик
     const username =
       userData.username ||
       `${userData.telegram_id || "user"}_M12_${Math.floor(Math.random() * 10000)}`;
@@ -106,9 +102,9 @@ app.post("/users", async (req, res) => {
       expire: null,                       // бессрочно (как Shnitcel)
       data_limit: null,                   // без лимита
       data_limit_reset_strategy: "no_reset",
-      proxies: { vless: {} },             // VLESS включен
-      note: userData.note || "",          // можно оставить пустым
-      excluded_inbounds: { vless: [] },   // доступ ко всем inbound
+      proxies: { vless: {} },             // включаем VLESS
+      note: userData.note || "",
+      inbounds: { vless: ["VLESS TCP REALITY"] }, // ✅ сразу ставим галочку на Reality inbound
     };
 
     console.log("📤 Отправляем payload в Marzban:", payload);
@@ -131,6 +127,7 @@ app.post("/users", async (req, res) => {
     res.status(500).json({ error: err.response?.data || err.message });
   }
 });
+
 
 
 // Список пользователей (полный)
