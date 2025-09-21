@@ -86,22 +86,29 @@ app.post("/users/:username/extend", async (req, res) => {
 /**
  * Создание пользователя
  */
+/**
+ * Создание пользователя (как Shnitcel, но с кастомным именем)
+ */
 app.post("/users", async (req, res) => {
   try {
     const token = await getToken();
-
     const userData = req.body;
 
+    // Генерация имени в формате "telegramId_M12_x"
+    // например, если передаёшь telegramId и счётчик
+    const username =
+      userData.username ||
+      `${userData.telegram_id || "user"}_M12_${Math.floor(Math.random() * 10000)}`;
+
     const payload = {
-      username: userData.username,
-      status: userData.status || "active",
-      expire: userData.expire ?? 0,
-      data_limit: userData.data_limit ?? 0,
-      data_limit_reset_strategy: userData.data_limit_reset_strategy || "no_reset",
-      proxies: userData.proxies || {
-        vless: {} // создаём пользователя с VLESS
-      },
-      note: userData.note || "создан через API",
+      username,
+      status: "active",
+      expire: null,                       // бессрочно (как Shnitcel)
+      data_limit: null,                   // без лимита
+      data_limit_reset_strategy: "no_reset",
+      proxies: { vless: {} },             // VLESS включен
+      note: userData.note || "",          // можно оставить пустым
+      excluded_inbounds: { vless: [] },   // доступ ко всем inbound
     };
 
     console.log("📤 Отправляем payload в Marzban:", payload);
@@ -125,9 +132,8 @@ app.post("/users", async (req, res) => {
   }
 });
 
-/**
- * Список пользователей (упрощённый)
- */
+
+// Список пользователей (полный)
 app.get("/users", async (req, res) => {
   try {
     const token = await getToken();
@@ -136,21 +142,14 @@ app.get("/users", async (req, res) => {
       httpsAgent: agent,
     });
 
-    // Берём только нужные данные
-    const simplifiedUsers = usersRes.data.users.map((user) => ({
-      username: user.username,
-      status: user.status,
-      expire: user.expire
-        ? new Date(user.expire * 1000).toISOString().slice(0, 19).replace("T", " ")
-        : "неограниченно",
-    }));
-
-    res.json(simplifiedUsers);
+    // отдаём всё как есть
+    res.json(usersRes.data);
   } catch (err) {
     console.error("❌ Ошибка получения списка:", err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data || err.message });
   }
 });
+
 
 
 /**
