@@ -86,28 +86,41 @@ app.post("/users/:username/extend", async (req, res) => {
 /**
  * Создание пользователя (как Shnitcel, но с кастомным именем и Reality inbound)
  */
+// Создание пользователя с корректным expire + Reality inbound по умолчанию
 app.post("/users", async (req, res) => {
   try {
     const token = await getToken();
-    const userData = req.body;
+    const body = req.body || {};
 
-    // Генерация имени в формате "telegramId_M12_x"
+    // Если пришёл готовый expire (unix seconds) — используем его.
+    // Иначе если пришли months — считаем по календарю (через setMonth).
+    let expire = body.expire;
+    if ((!expire || Number.isNaN(Number(expire))) && body.months) {
+      const base = new Date();
+      base.setSeconds(0, 0);
+      base.setMonth(base.getMonth() + Number(body.months));
+      expire = Math.floor(base.getTime() / 1000);
+    }
+
     const username =
-      userData.username ||
-      `${userData.telegram_id || "user"}_M12_${Math.floor(Math.random() * 10000)}`;
+      body.username ||
+      `${body.telegram_id || "user"}_${body.plan || "M"}_${Math.floor(Math.random() * 10000)}`;
 
     const payload = {
       username,
-      status: "active",
-      expire: null,                       // бессрочно (как Shnitcel)
-      data_limit: null,                   // без лимита
-      data_limit_reset_strategy: "no_reset",
-      proxies: { vless: {} },             // включаем VLESS
-      note: userData.note || "",
-      inbounds: { vless: ["VLESS TCP REALITY"] }, // ✅ сразу ставим галочку на Reality inbound
+      status: body.status || "active",
+      ...(expire ? { expire } : {}),
+      ...(body.data_limit !== undefined ? { data_limit: body.data_limit } : {}),
+      ...(body.data_limit_reset_strategy
+        ? { data_limit_reset_strategy: body.data_limit_reset_strategy }
+        : {}),
+      proxies: body.proxies || { vless: {} },
+      note: body.note || "",
+      // ✅ Reality inbound всегда по умолчанию
+      inbounds: body.inbounds || { vless: ["VLESS TCP REALITY"] },
     };
 
-    console.log("📤 Отправляем payload в Marzban:", payload);
+    console.log("📤 Создаём пользователя в Marzban с payload:", payload);
 
     const createRes = await axios.post(
       `${process.env.MARZBAN_URL}/api/user`,
@@ -127,6 +140,7 @@ app.post("/users", async (req, res) => {
     res.status(500).json({ error: err.response?.data || err.message });
   }
 });
+
 
 
 
